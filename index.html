@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#1c2026" />
+    <title>Begehung · MFH Eldagsen</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path d='M4 28V14L16 5l12 9v14z' fill='%235aa9e6'/></svg>" />
+  </head>
+  <body>
+    <canvas id="view"></canvas>
+
+    <div id="loading" class="screen">
+      <div class="card">
+        <strong id="stage">Modell wird geladen …</strong>
+        <div class="bar"><i id="bar"></i></div>
+        <span id="pct">0 %</span>
+      </div>
+    </div>
+
+    <div id="start" class="screen hidden">
+      <div class="card">
+        <h1>MFH Eldagsen</h1>
+        <p class="desk">Mit <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> gehen, mit der Maus umsehen, <kbd>Shift</kbd> zum Rennen. <kbd>Esc</kbd> gibt die Maus frei.</p>
+        <p class="touch">Mit den Pfeiltasten unten links gehen, mit einem Finger auf dem Bild umsehen.</p>
+        <button id="go" type="button">Rundgang starten</button>
+      </div>
+    </div>
+
+    <div id="pad" class="hidden" aria-label="Steuerung">
+      <button data-dir="f" aria-label="Vorwärts">▲</button>
+      <button data-dir="l" aria-label="Links">◀</button>
+      <button data-dir="b" aria-label="Rückwärts">▼</button>
+      <button data-dir="r" aria-label="Rechts">▶</button>
+    </div>
+
+    <div id="error" class="screen hidden"><div class="card"><strong>Das Modell konnte nicht geladen werden.</strong><span id="errmsg"></span></div></div>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>
