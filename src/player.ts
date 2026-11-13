@@ -18,6 +18,8 @@ export class Player {
   private ray = new THREE.Raycaster();
   private spawn = new THREE.Vector3();
   private spawnYaw = 0;
+  private bob = 0;
+  private bobAmp = 0;
 
   constructor(private camera: THREE.PerspectiveCamera, private colliders: THREE.Mesh[]) {
     this.ray.firstHitOnly = true;
@@ -80,6 +82,11 @@ export class Player {
       this.feet.y += this.vy * dt;
       if (ground !== null && this.feet.y <= ground) { this.feet.y = ground; this.vy = 0; }
     }
+    // gentle head bob while walking (fades in/out)
+    const moving = move.lengthSq() > 1e-8;
+    this.bobAmp = THREE.MathUtils.damp(this.bobAmp, moving ? 1 : 0, 8, dt);
+    if (moving) this.bob += dt * (speed > WALK ? 11 : 8.5);
+
     if (this.feet.y < this.spawn.y - 60) this.place(this.spawn, this.spawn.clone().add(new THREE.Vector3(-Math.sin(this.spawnYaw), EYE, -Math.cos(this.spawnYaw))));
 
     this.syncCamera();
@@ -107,7 +114,8 @@ export class Player {
   }
 
   private syncCamera() {
-    this.camera.position.set(this.feet.x, this.feet.y + EYE, this.feet.z);
+    const b = Math.sin(this.bob) * 0.022 * this.bobAmp;
+    this.camera.position.set(this.feet.x, this.feet.y + EYE + Math.abs(b) - 0.011 * this.bobAmp, this.feet.z);
     this.camera.rotation.set(this.pitch, this.yaw, 0, 'YXZ');
   }
 }

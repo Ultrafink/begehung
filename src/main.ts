@@ -3,6 +3,11 @@ import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { ModelScene } from './model/ModelScene';
 import { buildWorld } from './world';
+import { texturize, roofMaterial } from './textures';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { Player } from './player';
 import './style.css';
 
@@ -19,7 +24,7 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: !isTouch || device
 renderer.setPixelRatio(Math.min(devicePixelRatio, isTouch ? 1.5 : 2));
 renderer.toneMapping = THREE.AgXToneMapping;
 renderer.toneMappingExposure = 1.05;
-renderer.shadowMap.enabled = !isTouch; // shadows on desktop; phones stay smooth
+renderer.shadowMap.enabled = true; // computed once at load, cheap even on phones
 renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.shadowMap.autoUpdate = false; // static sun + static building: render shadows once
 
@@ -30,14 +35,29 @@ const resize = () => {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
 };
-addEventListener('resize', resize);
+// desktop: ambient occlusion (soft darkening in corners, joints, under furniture)
+let composer: EffectComposer | null = null;
+let gtao: GTAOPass | null = null;
+if (!isTouch) {
+  const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 });
+  composer = new EffectComposer(renderer, rt);
+  composer.addPass(new RenderPass(scene, camera));
+  gtao = new GTAOPass(scene, camera, 1, 1);
+  gtao.blendIntensity = 0.9;
+  gtao.updateGtaoMaterial({ radius: 0.6, distanceExponent: 1.2, thickness: 1.5, scale: 1.0, samples: 12 });
+  gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 12 });
+  composer.addPass(gtao);
+  composer.addPass(new OutputPass());
+}
+addEventListener('resize', () => { resize(); composer?.setSize(innerWidth, innerHeight); composer?.setPixelRatio(renderer.getPixelRatio()); });
 resize();
+composer?.setSize(innerWidth, innerHeight);
 
 scene.add(new THREE.HemisphereLight('#dfe8f2', '#5a5248', 0.35));
 const sun = new THREE.DirectionalLight('#fff3e2', 3.2);
 sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
-sun.shadow.radius = 2.5;
+sun.shadow.mapSize.set(isTouch ? 2048 : 4096, isTouch ? 2048 : 4096);
+sun.shadow.radius = 2;
 sun.shadow.bias = -0.0004;
 sun.shadow.normalBias = 0.03;
 scene.add(sun, sun.target);
@@ -79,7 +99,16 @@ async function init() {
   const model = await ModelScene.load(buf, 'model.fbx');
   progress(0.88, 'Begehbare Flächen werden berechnet …');
   await frame();
-  const world = buildWorld(model);
+  const roofs = new Map<THREE.Material, THREE.Material>();
+  const world = buildWorld(model, (mat, elName) => {
+    if (/ziegel/i.test(elName) && /kunststoff|dach|ziegel/i.test(mat.name)) {
+      let r = roofs.get(mat);
+      if (!r) roofs.set(mat, (r = roofMaterial(mat, renderer)));
+      return r;
+    }
+    texturize(mat, renderer);
+    return mat;
+  });
   scene.add(world.group);
 
   env.mapping = THREE.EquirectangularReflectionMapping;
@@ -91,6 +120,15 @@ async function init() {
   scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
   pmrem.dispose();
   scene.environmentIntensity = 0.75;
+  // windows and metal reflect the real sky instead of the neutral studio light
+  const sky = new THREE.PMREMGenerator(renderer);
+  const skyEnv = sky.fromEquirectangular(env).texture;
+  sky.dispose();
+  world.group.traverse((o) => {
+    const mm = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined;
+    if (!mm?.isMeshStandardMaterial) return;
+    if (mm.userData.isGlass || mm.metalness > 0.5) { mm.envMap = skyEnv; mm.envMapIntensity = mm.userData.isGlass ? 1.6 : 1.0; }
+  });
 
   // afternoon sun from south-west, shadow frustum fitted to the building
   const sphere = world.building.getBoundingSphere(new THREE.Sphere());
@@ -103,6 +141,7 @@ async function init() {
 
   player = new Player(camera, world.colliders);
   player.place(world.spawn, world.lookAt);
+  if (location.search.includes('debug')) Object.assign(window, { __walk: { player, renderer, scene, camera, render: () => (composer ? composer.render() : renderer.render(scene, camera)) } });
   renderer.compile(scene, camera);
 
   $('loading').classList.add('hidden');
@@ -169,7 +208,7 @@ const clock = new THREE.Clock();
 renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), 0.05);
   if (player && $('start').classList.contains('hidden')) player.update(dt);
-  renderer.render(scene, camera);
+  if (composer) composer.render(); else renderer.render(scene, camera);
 });
 
 init().catch((e) => {

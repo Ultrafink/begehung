@@ -23,7 +23,7 @@ const rules: [RegExp, MatSpec][] = [
   [/bildschirm/, { color: '#0b0d10', roughness: 0.15, metalness: 0.2 }],
   [/glas|glass|verglas/, { color: '#9fc3cf', roughness: 0.04, metalness: 0, glass: true, opacity: 0.28 }],
   [/chrom|corom|poliert/, { color: '#d9dbde', roughness: 0.12, metalness: 1 }],
-  [/edelstahl|stainless|alumin|alluminio|metall|stahl|wasserhähne/, { color: '#b9bcc0', roughness: 0.35, metalness: 1 }],
+  [/edelstahl|stainless|alumin|alluminio|metall|stahl(?!beton)|wasserhähne/, { color: '#b9bcc0', roughness: 0.35, metalness: 1 }],
   [/klinker/, { color: '#c4a27a', roughness: 0.85, metalness: 0 }],
   [/naturstein/, { color: '#a7a194', roughness: 0.9, metalness: 0 }],
   [/ziegel|dach/, { color: '#55585c', roughness: 0.75, metalness: 0 }],

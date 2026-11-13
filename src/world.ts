@@ -24,7 +24,9 @@ interface Bucket { material: THREE.Material; solid: boolean; pos: number[]; nrm:
  * ~90 draw calls instead of ~3 400, and the same meshes serve as BVH colliders.
  * Geometry is copied 1:1 in world space (metres), nothing is simplified.
  */
-export function buildWorld(m: ModelScene): World {
+export type MaterialHook = (mat: THREE.Material, elementName: string) => THREE.Material;
+
+export function buildWorld(m: ModelScene, materialFor: MaterialHook = (x) => x): World {
   const buckets = new Map<string, Bucket>();
   const chunkIdx = new Map<string, number>();
   const MAX_TRI = 60000;
@@ -45,7 +47,7 @@ export function buildWorld(m: ModelScene): World {
       const groups = g.groups.length ? g.groups : [{ start: 0, count: idx ? idx.count : P.count, materialIndex: 0 }];
       nm.getNormalMatrix(mesh.matrixWorld);
       for (const gr of groups) {
-        const mat = mats[Math.min(gr.materialIndex ?? 0, mats.length - 1)];
+        const mat = materialFor(mats[Math.min(gr.materialIndex ?? 0, mats.length - 1)], el.name);
         if (mat.name.toLowerCase().includes('vordach')) {
           canopies.push(new THREE.Box3().setFromObject(mesh));
         }
